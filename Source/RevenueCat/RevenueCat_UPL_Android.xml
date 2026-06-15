@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RevenueCat UE plugin — learning skeleton. Android UPL: Gradle deps + manifest + proguard. -->
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+
+	<!-- Pull purchases-hybrid-common (which transitively pulls purchases-android). -->
+	<buildGradleAdditions>
+		<insert>
+dependencies {
+    // TODO: pin a real version (check https://github.com/RevenueCat/purchases-hybrid-common/releases)
+    implementation "com.revenuecat.purchases:purchases-hybrid-common:13.+"
+}
+		</insert>
+	</buildGradleAdditions>
+
+	<!-- Billing permission. -->
+	<androidManifestUpdates>
+		<addPermission android:name="com.android.vending.BILLING" />
+	</androidManifestUpdates>
+
+	<!-- Keep RevenueCat classes from being stripped/obfuscated. -->
+	<proguardAdditions>
+		<insert>
+-keep class com.revenuecat.** { *; }
+		</insert>
+	</proguardAdditions>
+
+	<!-- TODO: a thin Java helper that calls CommonKt and returns JSON back through nativeRC_OnResult.
+	<gameActivityClassAdditions>
+		<insert>
+		// public void AndroidThunkJava_RC_Configure(String apiKey, String appUserId) { ... }
+		// public void AndroidThunkJava_RC_GetOfferings(long callbackId) { ... }
+		// public native void nativeRC_OnResult(long callbackId, String json, boolean isError);
+		</insert>
+	</gameActivityClassAdditions>
+	-->
+
+</root>
