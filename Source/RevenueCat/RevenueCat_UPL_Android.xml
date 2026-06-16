@@ -1,37 +1,132 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- RevenueCat UE plugin — learning skeleton. Android UPL: Gradle deps + manifest + proguard. -->
+<!-- RevenueCat UE plugin — Android UPL: Gradle deps + manifest + proguard + GameActivity Java bridge.
+     The Java bridge calls com.revenuecat.purchases.hybridcommon.CommonKt and reports results back
+     through the native method nativeRevenueCatOnResult (implemented in RevenueCatImpl_Android.cpp). -->
 <root xmlns:android="http://schemas.android.com/apk/res/android">
 
-	<!-- Pull purchases-hybrid-common (which transitively pulls purchases-android). -->
+	<!-- hybrid-common pulls purchases-android transitively.
+	     TODO: pin the EXACT version that matches the CommonKt signatures used below.
+	     Check https://github.com/RevenueCat/purchases-hybrid-common/releases (and Unity's VERSIONS.md). -->
 	<buildGradleAdditions>
 		<insert>
 dependencies {
-    // TODO: pin a real version (check https://github.com/RevenueCat/purchases-hybrid-common/releases)
     implementation "com.revenuecat.purchases:purchases-hybrid-common:13.+"
 }
 		</insert>
 	</buildGradleAdditions>
 
-	<!-- Billing permission. -->
 	<androidManifestUpdates>
 		<addPermission android:name="com.android.vending.BILLING" />
 	</androidManifestUpdates>
 
-	<!-- Keep RevenueCat classes from being stripped/obfuscated. -->
 	<proguardAdditions>
 		<insert>
 -keep class com.revenuecat.** { *; }
 		</insert>
 	</proguardAdditions>
 
-	<!-- TODO: a thin Java helper that calls CommonKt and returns JSON back through nativeRC_OnResult.
+	<!-- Imports added to GameActivity.java -->
+	<gameActivityImportAdditions>
+		<insert>
+import android.app.Activity;
+import org.json.JSONObject;
+import java.util.Map;
+import com.revenuecat.purchases.Purchases;
+import com.revenuecat.purchases.PurchasesConfiguration;
+import com.revenuecat.purchases.common.PlatformInfo;
+import com.revenuecat.purchases.hybridcommon.CommonKt;
+import com.revenuecat.purchases.hybridcommon.OnResult;
+import com.revenuecat.purchases.hybridcommon.ErrorContainer;
+import com.revenuecat.purchases.hybridcommon.mappers.MappersHelpersKt;
+		</insert>
+	</gameActivityImportAdditions>
+
+	<!-- Methods + native callback declaration added to GameActivity.java -->
 	<gameActivityClassAdditions>
 		<insert>
-		// public void AndroidThunkJava_RC_Configure(String apiKey, String appUserId) { ... }
-		// public void AndroidThunkJava_RC_GetOfferings(long callbackId) { ... }
-		// public native void nativeRC_OnResult(long callbackId, String json, boolean isError);
+	// ===== RevenueCat bridge =====
+	public native void nativeRevenueCatOnResult(long callbackId, String json, boolean isError);
+
+	private OnResult RevenueCat_makeResult(final long callbackId) {
+		return new OnResult() {
+			@Override public void onReceived(Map&lt;String, ?&gt; map) {
+				try {
+					nativeRevenueCatOnResult(callbackId, MappersHelpersKt.convertToJson(map).toString(), false);
+				} catch (Throwable t) {
+					nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"" + t.getMessage() + "\"}", true);
+				}
+			}
+			@Override public void onError(ErrorContainer errorContainer) {
+				try {
+					nativeRevenueCatOnResult(callbackId, MappersHelpersKt.convertToJson(errorContainer.getInfo()).toString(), true);
+				} catch (Throwable t) {
+					nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"error\"}", true);
+				}
+			}
+		};
+	}
+
+	public void AndroidThunkJava_RevenueCat_Configure(final String apiKey, final String appUserId) {
+		final String uid = (appUserId != null &amp;&amp; appUserId.length() &gt; 0) ? appUserId : null;
+		runOnUiThread(new Runnable() { public void run() {
+			try {
+				Purchases.setPlatformInfo(new PlatformInfo("unreal", "0.1.0"));
+				PurchasesConfiguration.Builder builder =
+					new PurchasesConfiguration.Builder(getApplicationContext(), apiKey);
+				if (uid != null) { builder.appUserID(uid); }
+				Purchases.configure(builder.build());
+			} catch (Throwable t) { /* configure failure surfaces on the next call */ }
+		}});
+	}
+
+	public void AndroidThunkJava_RevenueCat_GetOfferings(final long callbackId) {
+		try { CommonKt.getOfferings(RevenueCat_makeResult(callbackId)); }
+		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"not configured\"}", true); }
+	}
+
+	public void AndroidThunkJava_RevenueCat_GetCustomerInfo(final long callbackId) {
+		try { CommonKt.getCustomerInfo(RevenueCat_makeResult(callbackId)); }
+		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"not configured\"}", true); }
+	}
+
+	public void AndroidThunkJava_RevenueCat_RestorePurchases(final long callbackId) {
+		try { CommonKt.restorePurchases(RevenueCat_makeResult(callbackId)); }
+		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"not configured\"}", true); }
+	}
+
+	public void AndroidThunkJava_RevenueCat_LogIn(final String appUserId, final long callbackId) {
+		try { CommonKt.logIn(appUserId, RevenueCat_makeResult(callbackId)); }
+		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"login failed\"}", true); }
+	}
+
+	public void AndroidThunkJava_RevenueCat_LogOut(final long callbackId) {
+		try { CommonKt.logOut(RevenueCat_makeResult(callbackId)); }
+		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"logout failed\"}", true); }
+	}
+
+	public void AndroidThunkJava_RevenueCat_PurchasePackage(final String packageIdentifier, final String offeringIdentifier, final long callbackId) {
+		final Activity activity = this;
+		runOnUiThread(new Runnable() { public void run() {
+			try {
+				java.util.HashMap&lt;String, Object&gt; presentedOfferingContext = new java.util.HashMap&lt;String, Object&gt;();
+				if (offeringIdentifier != null &amp;&amp; offeringIdentifier.length() &gt; 0) {
+					presentedOfferingContext.put("offeringIdentifier", offeringIdentifier);
+				}
+				CommonKt.purchasePackage(
+					activity,
+					packageIdentifier,
+					presentedOfferingContext,
+					null,   // googleOldProductId
+					null,   // googleReplacementMode
+					null,   // googleIsPersonalizedPrice
+					RevenueCat_makeResult(callbackId));
+			} catch (Throwable t) {
+				nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"purchase failed\"}", true);
+			}
+		}});
+	}
+	// ===== end RevenueCat bridge =====
 		</insert>
 	</gameActivityClassAdditions>
-	-->
 
 </root>

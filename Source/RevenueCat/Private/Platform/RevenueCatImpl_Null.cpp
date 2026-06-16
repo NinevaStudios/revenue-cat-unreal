@@ -11,7 +11,7 @@ class FRevenueCatImpl_Null : public IRevenueCatImpl
 public:
 	virtual void Configure(const FString& /*ApiKey*/, const FString& /*AppUserId*/) override {}
 	virtual void GetOfferings(FResultCallback Cb) override { Cb(TEXT("{}"), false); }
-	virtual void PurchasePackage(const FString& /*PackageId*/, FResultCallback Cb) override { Cb(TEXT("{}"), false); }
+	virtual void PurchasePackage(const FString& /*PackageId*/, const FString& /*OfferingId*/, FResultCallback Cb) override { Cb(TEXT("{}"), false); }
 	virtual void GetCustomerInfo(FResultCallback Cb) override { Cb(TEXT("{}"), false); }
 	virtual void RestorePurchases(FResultCallback Cb) override { Cb(TEXT("{}"), false); }
 	virtual void LogIn(const FString& /*AppUserId*/, FResultCallback Cb) override { Cb(TEXT("{}"), false); }

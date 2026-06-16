@@ -75,6 +75,7 @@ struct FRCPackage
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadOnly, Category = "RevenueCat") FString Identifier; // $rc_monthly, $rc_annual, ...
+	UPROPERTY(BlueprintReadOnly, Category = "RevenueCat") FString OfferingIdentifier; // owning offering — needed to purchase
 	UPROPERTY(BlueprintReadOnly, Category = "RevenueCat") FRCStoreProduct StoreProduct;
 };
 

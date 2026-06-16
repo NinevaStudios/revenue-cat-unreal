@@ -32,6 +32,24 @@ public:
 	UPROPERTY(EditAnywhere, Config, Category = "Desktop")
 	FString BackendBaseUrl;
 
+	/**
+	 * X-Platform header sent on desktop REST calls. Offerings are filtered by this value.
+	 * Valid: ios, android, amazon, stripe, roku, paddle. Leave empty to omit the header.
+	 */
+	UPROPERTY(EditAnywhere, Config, Category = "Desktop")
+	FString DesktopStorePlatform = TEXT("stripe");
+
+	/**
+	 * RevenueCat Web Billing "Web Purchase Link" base URL (from the dashboard).
+	 * Desktop PurchasePackage() opens this in a browser, appending the App User ID.
+	 */
+	UPROPERTY(EditAnywhere, Config, Category = "Desktop")
+	FString WebPurchaseLinkUrl;
+
+	/** How long (seconds) to poll for the entitlement after opening the web checkout. */
+	UPROPERTY(EditAnywhere, Config, Category = "Desktop", meta = (ClampMin = "10", ClampMax = "600"))
+	int32 CheckoutPollTimeoutSeconds = 180;
+
 	/** Verbose SDK logging. */
 	UPROPERTY(EditAnywhere, Config, Category = "Debug")
 	bool bEnableDebugLogs = false;

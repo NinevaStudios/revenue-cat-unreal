@@ -32,9 +32,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RevenueCat")
 	void GetOfferings(const FRCOnOfferings& OnDone);
 
-	/** Start a purchase for a package identifier (e.g. "$rc_monthly"). */
+	/** Preferred: purchase a package you got from GetOfferings (it carries its offering context). */
 	UFUNCTION(BlueprintCallable, Category = "RevenueCat")
-	void PurchasePackage(const FString& PackageIdentifier, const FRCOnCustomer& OnDone);
+	void PurchaseStorePackage(const FRCPackage& Package, const FRCOnCustomer& OnDone);
+
+	/** Lower-level purchase by identifiers. OfferingIdentifier is required for correct resolution. */
+	UFUNCTION(BlueprintCallable, Category = "RevenueCat")
+	void PurchasePackage(const FString& PackageIdentifier, const FString& OfferingIdentifier, const FRCOnCustomer& OnDone);
 
 	/** Current entitlement / subscription state. */
 	UFUNCTION(BlueprintCallable, Category = "RevenueCat")

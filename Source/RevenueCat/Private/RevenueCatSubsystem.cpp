@@ -53,7 +53,12 @@ void URevenueCatSubsystem::GetOfferings(const FRCOnOfferings& OnDone)
 	});
 }
 
-void URevenueCatSubsystem::PurchasePackage(const FString& PackageIdentifier, const FRCOnCustomer& OnDone)
+void URevenueCatSubsystem::PurchaseStorePackage(const FRCPackage& Package, const FRCOnCustomer& OnDone)
+{
+	PurchasePackage(Package.Identifier, Package.OfferingIdentifier, OnDone);
+}
+
+void URevenueCatSubsystem::PurchasePackage(const FString& PackageIdentifier, const FString& OfferingIdentifier, const FRCOnCustomer& OnDone)
 {
 	if (!Impl)
 	{
@@ -63,7 +68,7 @@ void URevenueCatSubsystem::PurchasePackage(const FString& PackageIdentifier, con
 	}
 
 	FRCOnCustomer Callback = OnDone;
-	Impl->PurchasePackage(PackageIdentifier, [this, Callback](const FString& Json, bool bIsError)
+	Impl->PurchasePackage(PackageIdentifier, OfferingIdentifier, [this, Callback](const FString& Json, bool bIsError)
 	{
 		const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
 		if (!bIsError) { UpdateCache(Info); }
