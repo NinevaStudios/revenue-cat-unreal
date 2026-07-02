@@ -4,13 +4,13 @@
      through the native method nativeRevenueCatOnResult (implemented in RevenueCatImpl_Android.cpp). -->
 <root xmlns:android="http://schemas.android.com/apk/res/android">
 
-	<!-- hybrid-common pulls purchases-android transitively.
-	     TODO: pin the EXACT version that matches the CommonKt signatures used below.
-	     Check https://github.com/RevenueCat/purchases-hybrid-common/releases (and Unity's VERSIONS.md). -->
+	<!-- hybrid-common pulls purchases-android transitively (this pin => purchases-android 10.9.1,
+	     which supports the RevenueCat Test Store). Matches the CommonKt signatures used below.
+	     Bump together: https://github.com/RevenueCat/purchases-hybrid-common/releases -->
 	<buildGradleAdditions>
 		<insert>
 dependencies {
-    implementation "com.revenuecat.purchases:purchases-hybrid-common:13.+"
+    implementation "com.revenuecat.purchases:purchases-hybrid-common:18.15.1"
 }
 		</insert>
 	</buildGradleAdditions>

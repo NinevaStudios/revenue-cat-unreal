@@ -21,7 +21,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRevenueCatParseActiveEntitlement,
 	"RevenueCat.Json.ActiveEntitlement", RC_TEST_FLAGS)
 bool FRevenueCatParseActiveEntitlement::RunTest(const FString&)
 {
-	const TCHAR* Json = LR"JSON(
+	const TCHAR* Json = TEXT(R"JSON(
 	{
 	  "request_date_ms": 1,
 	  "subscriber": {
@@ -42,7 +42,7 @@ bool FRevenueCatParseActiveEntitlement::RunTest(const FString&)
 	    "non_subscriptions": {}
 	  }
 	}
-	)JSON";
+	)JSON");
 
 	const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
 
@@ -71,11 +71,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRevenueCatParseExpiredEntitlement,
 	"RevenueCat.Json.ExpiredEntitlement", RC_TEST_FLAGS)
 bool FRevenueCatParseExpiredEntitlement::RunTest(const FString&)
 {
-	const TCHAR* Json = LR"JSON(
+	const TCHAR* Json = TEXT(R"JSON(
 	{ "subscriber": { "entitlements": {
 	    "pro": { "expires_date": "2000-01-01T00:00:00Z", "product_identifier": "p" }
 	}, "subscriptions": {}, "non_subscriptions": {} } }
-	)JSON";
+	)JSON");
 
 	const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
 	TestEqual(TEXT("no active entitlements"), Info.ActiveEntitlements.Num(), 0);
@@ -90,11 +90,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRevenueCatParseLifetimeEntitlement,
 	"RevenueCat.Json.LifetimeEntitlement", RC_TEST_FLAGS)
 bool FRevenueCatParseLifetimeEntitlement::RunTest(const FString&)
 {
-	const TCHAR* Json = LR"JSON(
+	const TCHAR* Json = TEXT(R"JSON(
 	{ "subscriber": { "entitlements": {
 	    "lifetime": { "expires_date": null, "product_identifier": "lifetime_pack" }
 	}, "subscriptions": {}, "non_subscriptions": {} } }
-	)JSON";
+	)JSON");
 
 	const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
 	TestTrue(TEXT("lifetime active"), Info.ActiveEntitlements.Contains(TEXT("lifetime")));
@@ -108,7 +108,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRevenueCatParseGracePeriod,
 	"RevenueCat.Json.GracePeriod", RC_TEST_FLAGS)
 bool FRevenueCatParseGracePeriod::RunTest(const FString&)
 {
-	const TCHAR* Json = LR"JSON(
+	const TCHAR* Json = TEXT(R"JSON(
 	{ "subscriber": { "entitlements": {
 	    "pro": {
 	      "expires_date": "2000-01-01T00:00:00Z",
@@ -116,7 +116,7 @@ bool FRevenueCatParseGracePeriod::RunTest(const FString&)
 	      "product_identifier": "p"
 	    }
 	}, "subscriptions": {}, "non_subscriptions": {} } }
-	)JSON";
+	)JSON");
 
 	const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
 	TestTrue(TEXT("grace keeps pro active"), Info.ActiveEntitlements.Contains(TEXT("pro")));
@@ -130,7 +130,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRevenueCatParseOfferings,
 	"RevenueCat.Json.Offerings", RC_TEST_FLAGS)
 bool FRevenueCatParseOfferings::RunTest(const FString&)
 {
-	const TCHAR* Json = LR"JSON(
+	const TCHAR* Json = TEXT(R"JSON(
 	{ "value": {
 	    "current_offering_id": "default",
 	    "offerings": [
@@ -141,7 +141,7 @@ bool FRevenueCatParseOfferings::RunTest(const FString&)
 	      { "identifier": "promo", "packages": [] }
 	    ]
 	} }
-	)JSON";
+	)JSON");
 
 	const FRCOfferings Offerings = RevenueCatJson::ParseOfferings(Json);
 
@@ -166,7 +166,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRevenueCatParseError,
 	"RevenueCat.Json.Error", RC_TEST_FLAGS)
 bool FRevenueCatParseError::RunTest(const FString&)
 {
-	const TCHAR* Json = LR"JSON({ "code": 7218, "message": "Invalid API Key." })JSON";
+	const TCHAR* Json = TEXT(R"JSON({ "code": 7218, "message": "Invalid API Key." })JSON");
 
 	const FRCError Err = RevenueCatJson::ParseError(Json, /*bIsError*/ true);
 	TestEqual(TEXT("error code"), Err.Code, 7218);
@@ -203,7 +203,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRevenueCatParseSdkCustomerInfo,
 	"RevenueCat.Json.SdkCustomerInfo", RC_TEST_FLAGS)
 bool FRevenueCatParseSdkCustomerInfo::RunTest(const FString&)
 {
-	const TCHAR* Json = LR"JSON(
+	const TCHAR* Json = TEXT(R"JSON(
 	{
 	  "originalAppUserId": "test_user_42",
 	  "managementURL": "https://manage.example.com",
@@ -216,7 +216,7 @@ bool FRevenueCatParseSdkCustomerInfo::RunTest(const FString&)
 	  },
 	  "activeSubscriptions": [ "rc_monthly" ]
 	}
-	)JSON";
+	)JSON");
 
 	const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
 	TestEqual(TEXT("originalAppUserId"), Info.OriginalAppUserId, FString(TEXT("test_user_42")));
@@ -239,7 +239,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRevenueCatParseSdkOfferings,
 	"RevenueCat.Json.SdkOfferings", RC_TEST_FLAGS)
 bool FRevenueCatParseSdkOfferings::RunTest(const FString&)
 {
-	const TCHAR* Json = LR"JSON(
+	const TCHAR* Json = TEXT(R"JSON(
 	{
 	  "current": {
 	    "identifier": "default",
@@ -251,7 +251,7 @@ bool FRevenueCatParseSdkOfferings::RunTest(const FString&)
 	  },
 	  "all": { "default": { "identifier": "default", "availablePackages": [] } }
 	}
-	)JSON";
+	)JSON");
 
 	const FRCOfferings Offerings = RevenueCatJson::ParseOfferings(Json);
 	TestEqual(TEXT("current id"), Offerings.Current.Identifier, FString(TEXT("default")));
@@ -277,11 +277,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRevenueCatParseSdkPurchaseResult,
 	"RevenueCat.Json.SdkPurchaseResult", RC_TEST_FLAGS)
 bool FRevenueCatParseSdkPurchaseResult::RunTest(const FString&)
 {
-	const TCHAR* Json = LR"JSON(
+	const TCHAR* Json = TEXT(R"JSON(
 	{ "productIdentifier": "p_monthly",
 	  "customerInfo": { "entitlements": { "active": {
 	      "pro": { "isActive": true, "productIdentifier": "p_monthly" } } } } }
-	)JSON";
+	)JSON");
 
 	const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
 	TestTrue(TEXT("pro active from purchase result"), Info.ActiveEntitlements.Contains(TEXT("pro")));
