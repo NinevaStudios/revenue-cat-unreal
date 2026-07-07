@@ -10,15 +10,16 @@ void URCPackageItemViewModel::Init(URCDemoViewModel* InOwner, const FRCPackage& 
 
 	const FRCStoreProduct& Product = InPackage.StoreProduct;
 
+	// Title comes from the store (mobile); desktop REST has none, so fall back to the package id.
 	DisplayName = FText::FromString(!Product.Title.IsEmpty() ? Product.Title : InPackage.Identifier);
 	UE_MVVM_BROADCAST_FIELD_VALUE_CHANGED(DisplayName);
 
-	FString Price = Product.PriceString;
-	if (Price.IsEmpty())
-	{
-		Price = !Product.Identifier.IsEmpty() ? Product.Identifier : TEXT("-");
-	}
-	PriceText = FText::FromString(Price);
+	// Product identifier — good as a subtitle line.
+	ProductIdText = FText::FromString(Product.Identifier);
+	UE_MVVM_BROADCAST_FIELD_VALUE_CHANGED(ProductIdText);
+
+	// Store price string is already localized (e.g. "$0.99"); "-" when unavailable (desktop REST).
+	PriceText = FText::FromString(!Product.PriceString.IsEmpty() ? Product.PriceString : TEXT("-"));
 	UE_MVVM_BROADCAST_FIELD_VALUE_CHANGED(PriceText);
 }
 

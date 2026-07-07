@@ -28,9 +28,13 @@ public:
 	UPROPERTY(BlueprintReadOnly, FieldNotify, Category = "RevenueCat|Demo")
 	FText DisplayName;
 
-	/** Localized price ("$0.99"); falls back to the store product id when the branch has no price (REST). */
+	/** Localized price ("$0.99") from the store; "-" when the branch has no price (e.g. desktop REST). */
 	UPROPERTY(BlueprintReadOnly, FieldNotify, Category = "RevenueCat|Demo")
 	FText PriceText;
+
+	/** Store product identifier ("test" / "com.game.pro.monthly") — use as a subtitle. */
+	UPROPERTY(BlueprintReadOnly, FieldNotify, Category = "RevenueCat|Demo")
+	FText ProductIdText;
 
 	/** True while this package's purchase is in flight — bind Buy.bIsEnabled through NOT. */
 	UPROPERTY(BlueprintReadOnly, FieldNotify, Category = "RevenueCat|Demo")
