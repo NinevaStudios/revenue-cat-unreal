@@ -3,6 +3,7 @@
 #include "RCDemoViewModel.h"
 #include "RCPackageItemViewModel.h"
 #include "RevenueCatSubsystem.h"
+#include "RevenueCatSettings.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/DateTime.h"
 
@@ -40,6 +41,30 @@ void URCDemoViewModel::Shutdown()
 void URCDemoViewModel::ConfigureCmd()
 {
 	if (!CheckReady(TEXT("Configure"))) { return; }
+
+	// Fail loudly when the key for THIS platform is missing — otherwise every later call just
+	// reports "not configured" from the native SDK and the real cause stays hidden.
+	{
+		const URevenueCatSettings* Settings = GetDefault<URevenueCatSettings>();
+		const TCHAR* KeyField;
+		FString KeyValue;
+#if PLATFORM_IOS
+		KeyField = TEXT("Apple Api Key");
+		KeyValue = Settings->AppleApiKey;
+#elif PLATFORM_ANDROID
+		KeyField = TEXT("Google Api Key");
+		KeyValue = Settings->GoogleApiKey;
+#else
+		KeyField = TEXT("Web Billing Api Key");
+		KeyValue = Settings->WebBillingApiKey;
+#endif
+		if (KeyValue.IsEmpty())
+		{
+			AppendLog(FString::Printf(
+				TEXT("Configure aborted: '%s' is empty (Project Settings > Plugins > RevenueCat)"), KeyField), true);
+			return;
+		}
+	}
 
 	Subsystem->Configure(AppUserId);
 

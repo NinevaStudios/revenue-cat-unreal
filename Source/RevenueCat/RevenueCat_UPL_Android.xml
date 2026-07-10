@@ -66,42 +66,57 @@ import com.revenuecat.purchases.hybridcommon.mappers.MappersHelpersKt;
 		};
 	}
 
+	// Never swallow failures: log them to logcat (tag "RevenueCat") and surface them to the caller.
+	private String RevenueCat_errJson(Throwable t) {
+		String msg = (t == null) ? "unknown error" : String.valueOf(t);
+		msg = msg.replace("\\", "\\\\").replace("\"", "'");
+		android.util.Log.e("RevenueCat", "call failed: " + msg);
+		return "{\"code\":-1,\"message\":\"" + msg + "\"}";
+	}
+
 	public void AndroidThunkJava_RevenueCat_Configure(final String apiKey, final String appUserId) {
 		final String uid = (appUserId != null &amp;&amp; appUserId.length() &gt; 0) ? appUserId : null;
 		runOnUiThread(new Runnable() { public void run() {
+			if (apiKey == null || apiKey.length() == 0) {
+				android.util.Log.e("RevenueCat", "Configure failed: API key is empty. Set 'Google Api Key' in Project Settings / Plugins / RevenueCat.");
+				return;
+			}
 			try {
 				Purchases.setPlatformInfo(new PlatformInfo("unreal", "0.1.0"));
 				PurchasesConfiguration.Builder builder =
 					new PurchasesConfiguration.Builder(getApplicationContext(), apiKey);
 				if (uid != null) { builder.appUserID(uid); }
 				Purchases.configure(builder.build());
-			} catch (Throwable t) { /* configure failure surfaces on the next call */ }
+				android.util.Log.i("RevenueCat", "Configure OK, appUserId=" + uid);
+			} catch (Throwable t) {
+				android.util.Log.e("RevenueCat", "Configure failed", t);
+			}
 		}});
 	}
 
 	public void AndroidThunkJava_RevenueCat_GetOfferings(final long callbackId) {
 		try { CommonKt.getOfferings(RevenueCat_makeResult(callbackId)); }
-		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"not configured\"}", true); }
+		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true); }
 	}
 
 	public void AndroidThunkJava_RevenueCat_GetCustomerInfo(final long callbackId) {
 		try { CommonKt.getCustomerInfo(RevenueCat_makeResult(callbackId)); }
-		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"not configured\"}", true); }
+		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true); }
 	}
 
 	public void AndroidThunkJava_RevenueCat_RestorePurchases(final long callbackId) {
 		try { CommonKt.restorePurchases(RevenueCat_makeResult(callbackId)); }
-		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"not configured\"}", true); }
+		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true); }
 	}
 
 	public void AndroidThunkJava_RevenueCat_LogIn(final String appUserId, final long callbackId) {
 		try { CommonKt.logIn(appUserId, RevenueCat_makeResult(callbackId)); }
-		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"login failed\"}", true); }
+		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true); }
 	}
 
 	public void AndroidThunkJava_RevenueCat_LogOut(final long callbackId) {
 		try { CommonKt.logOut(RevenueCat_makeResult(callbackId)); }
-		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"logout failed\"}", true); }
+		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true); }
 	}
 
 	public void AndroidThunkJava_RevenueCat_PurchasePackage(final String packageIdentifier, final String offeringIdentifier, final long callbackId) {
@@ -121,7 +136,7 @@ import com.revenuecat.purchases.hybridcommon.mappers.MappersHelpersKt;
 					null,   // googleIsPersonalizedPrice
 					RevenueCat_makeResult(callbackId));
 			} catch (Throwable t) {
-				nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"purchase failed\"}", true);
+				nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true);
 			}
 		}});
 	}
