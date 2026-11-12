@@ -1,4 +1,5 @@
-// RevenueCat UE plugin — MVVM item viewmodel for one purchasable package (a ListView entry).
+// Copyright (c) 2026 Nineva Studios
+// MVVM item viewmodel for one purchasable package (a ListView entry).
 
 #pragma once
 

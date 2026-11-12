@@ -1,0 +1,4 @@
+# build_xcframeworks.sh runs on macOS: never convert it to CRLF on Windows checkouts.
+*.sh text eol=lf
+# Prebuilt SDK archives.
+*.zip binary

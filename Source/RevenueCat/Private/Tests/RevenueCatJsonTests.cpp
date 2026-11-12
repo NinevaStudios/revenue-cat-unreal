@@ -1,4 +1,5 @@
-// RevenueCat UE plugin — unit tests for the JSON parser.
+// Copyright (c) 2026 Nineva Studios
+// Unit tests for the JSON parser.
 // Deterministic, no network / accounts / editor world required. Run from the editor's
 // Session Frontend -> Automation (filter "RevenueCat"), or headless via UnrealEditor-Cmd
 // -ExecCmds="Automation RunTests RevenueCat; Quit".
@@ -175,6 +176,29 @@ bool FRevenueCatParseError::RunTest(const FString&)
 
 	const FRCError NoErr = RevenueCatJson::ParseError(Json, /*bIsError*/ false);
 	TestFalse(TEXT("HasError false on success"), NoErr.HasError());
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// SDK purchase error (hybrid-common ErrorContainer.info) — user cancelled flag + readable code
+// ---------------------------------------------------------------------------
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRevenueCatParseCancelError,
+	"RevenueCat.Json.ErrorUserCancelled", RC_TEST_FLAGS)
+bool FRevenueCatParseCancelError::RunTest(const FString&)
+{
+	const TCHAR* Json = TEXT(R"JSON({ "code": 1, "message": "Purchase was cancelled.",
+		"readableErrorCode": "PurchaseCancelledError", "underlyingErrorMessage": "", "userCancelled": true })JSON");
+
+	const FRCError Err = RevenueCatJson::ParseError(Json, /*bIsError*/ true);
+	TestEqual(TEXT("code"), Err.Code, RevenueCatErrorCodes::PurchaseCancelled);
+	TestTrue(TEXT("user cancelled"), Err.bUserCancelled);
+	TestEqual(TEXT("readable code"), Err.ReadableErrorCode, FString(TEXT("PurchaseCancelledError")));
+
+	// Non-JSON error body (e.g. an HTML 502 page) -> plugin Internal code, raw body as message.
+	const FRCError Raw = RevenueCatJson::ParseError(TEXT("<html>Bad Gateway</html>"), /*bIsError*/ true);
+	TestEqual(TEXT("raw code"), Raw.Code, RevenueCatErrorCodes::Internal);
+	TestFalse(TEXT("raw not cancelled"), Raw.bUserCancelled);
+	TestTrue(TEXT("raw has error"), Raw.HasError());
 	return true;
 }
 

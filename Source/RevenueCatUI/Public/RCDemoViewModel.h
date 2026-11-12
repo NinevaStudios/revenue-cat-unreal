@@ -1,4 +1,5 @@
-// RevenueCat UE plugin — main MVVM viewmodel for the demo screen.
+// Copyright (c) 2026 Nineva Studios
+// Main MVVM viewmodel for the demo screen.
 // View (WBP_RevenueCatDemo) binds to the FieldNotify properties and calls the command UFUNCTIONs;
 // it contains no logic of its own. Model = URevenueCatSubsystem.
 

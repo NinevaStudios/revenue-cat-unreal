@@ -1,4 +1,4 @@
-// RevenueCat UE plugin.
+// Copyright (c) 2026 Nineva Studios
 
 #include "RCDemoViewModel.h"
 #include "RCPackageItemViewModel.h"

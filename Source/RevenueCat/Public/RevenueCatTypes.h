@@ -1,4 +1,4 @@
-// RevenueCat UE plugin — learning skeleton.
+// Copyright (c) 2026 Nineva Studios
 // USTRUCT mirrors of the JSON that purchases-hybrid-common / REST returns,
 // plus the Blueprint-facing delegates.
 
@@ -16,14 +16,52 @@ enum class ERCOwnershipType : uint8
 	Unknown      UMETA(DisplayName = "Unknown")
 };
 
-/** Normalized error returned by every async call. */
+/**
+ * Error codes you can compare FRCError::Code against.
+ * Positive values come from the RevenueCat SDK (same numbers on every platform);
+ * negative values are produced by this plugin. Desktop REST failures carry RevenueCat backend codes (7xxx).
+ */
+namespace RevenueCatErrorCodes
+{
+	// Plugin
+	constexpr int32 Internal              = -1; // native call failed / unexpected payload (see Message)
+	constexpr int32 WebPurchaseLinkNotSet = -2; // desktop: "Web Purchase Link Url" is empty
+	constexpr int32 CheckoutTimeout       = -3; // desktop: no new entitlement before the poll timeout
+	constexpr int32 NotConfigured         = -4; // Configure was not called or the platform API key is empty
+
+	// RevenueCat SDK (subset)
+	constexpr int32 Unknown                    = 0;
+	constexpr int32 PurchaseCancelled          = 1;
+	constexpr int32 StoreProblem               = 2;
+	constexpr int32 PurchaseNotAllowed         = 3;
+	constexpr int32 PurchaseInvalid            = 4;
+	constexpr int32 ProductNotAvailable        = 5;
+	constexpr int32 ProductAlreadyPurchased    = 6;
+	constexpr int32 ReceiptAlreadyInUse        = 7;
+	constexpr int32 Network                    = 10;
+	constexpr int32 InvalidCredentials         = 11;
+	constexpr int32 OperationAlreadyInProgress = 15;
+	constexpr int32 PaymentPending             = 20;
+	constexpr int32 LogOutWithAnonymousUser    = 22;
+	constexpr int32 Configuration              = 23;
+}
+
+/** Error returned by every async call. Check HasError (C++) or "Code != 0" (Blueprint) first. */
 USTRUCT(BlueprintType)
 struct FRCError
 {
 	GENERATED_BODY()
 
+	/** 0 = no error. Positive = RevenueCat SDK code, negative = plugin code, 7xxx = RevenueCat backend (desktop). */
 	UPROPERTY(BlueprintReadOnly, Category = "RevenueCat") int32 Code = 0;
+
+	/** Human-readable description. Log it; do not show raw messages to players. */
 	UPROPERTY(BlueprintReadOnly, Category = "RevenueCat") FString Message;
+
+	/** SDK name of the code, e.g. "PurchaseCancelledError" (mobile only). */
+	UPROPERTY(BlueprintReadOnly, Category = "RevenueCat") FString ReadableErrorCode;
+
+	/** True when the player closed the store dialog. Not a real failure — do not show an error. */
 	UPROPERTY(BlueprintReadOnly, Category = "RevenueCat") bool bUserCancelled = false;
 
 	bool HasError() const { return Code != 0 || !Message.IsEmpty(); }

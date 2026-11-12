@@ -1,4 +1,4 @@
-// RevenueCat UE plugin — learning skeleton.
+// Copyright (c) 2026 Nineva Studios
 // Platform abstraction. Each impl returns a RAW JSON string; parsing happens once in the subsystem.
 
 #pragma once
@@ -13,7 +13,7 @@ public:
 	/** Called on the game thread. Json = serialized result (or error payload). */
 	using FResultCallback = TFunction<void(const FString& /*Json*/, bool /*bIsError*/)>;
 
-	virtual void Configure(const FString& ApiKey, const FString& AppUserId) = 0;
+	virtual void Configure(const FString& ApiKey, const FString& AppUserId, bool bDebugLogs) = 0;
 	virtual void GetOfferings(FResultCallback Cb) = 0;
 	virtual void PurchasePackage(const FString& PackageId, const FString& OfferingId, FResultCallback Cb) = 0;
 	virtual void GetCustomerInfo(FResultCallback Cb) = 0;

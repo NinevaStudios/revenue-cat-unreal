@@ -1,4 +1,5 @@
-// RevenueCat UE plugin — RevenueCatUI module (demo ViewModels).
+// Copyright (c) 2026 Nineva Studios
+// RevenueCatUI module (demo ViewModels).
 
 #include "Modules/ModuleManager.h"
 

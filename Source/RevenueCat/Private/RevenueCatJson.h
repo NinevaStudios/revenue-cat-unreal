@@ -1,6 +1,6 @@
-// RevenueCat UE plugin — learning skeleton.
+// Copyright (c) 2026 Nineva Studios
 // Single place that turns the raw JSON from any platform into USTRUCTs.
-// Bodies are stubs for now (TODO: real parsing with FJsonObjectConverter).
+// Understands both the REST v1 shape (desktop) and the SDK / hybrid-common shape (mobile).
 
 #pragma once
 

@@ -1,4 +1,4 @@
-// RevenueCat UE plugin.
+// Copyright (c) 2026 Nineva Studios
 // Android branch: C++ <-> JNI bridge into the GameActivity Java helper (added via the UPL),
 // which calls com.revenuecat.purchases.hybridcommon.CommonKt. Results come back through the
 // native callback nativeRevenueCatOnResult(...) and are marshalled to the game thread.
@@ -93,18 +93,18 @@ namespace
 		}
 	}
 
-	// Call a GameActivity void method "(Ljava/lang/String;Ljava/lang/String;)V" (configure).
-	void CallJavaTwoStrings(const char* Method, const FString& A, const FString& B)
+	// Call a GameActivity void method "(Ljava/lang/String;Ljava/lang/String;Z)V" (configure).
+	void CallJavaTwoStringsBool(const char* Method, const FString& A, const FString& B, bool bFlag)
 	{
 		if (JNIEnv* Env = AndroidJavaEnv::GetJavaEnv())
 		{
 			jobject Activity = AndroidJavaEnv::GetGameActivityThis();
 			jclass Clazz = Env->GetObjectClass(Activity);
-			if (jmethodID Mid = Env->GetMethodID(Clazz, Method, "(Ljava/lang/String;Ljava/lang/String;)V"))
+			if (jmethodID Mid = Env->GetMethodID(Clazz, Method, "(Ljava/lang/String;Ljava/lang/String;Z)V"))
 			{
 				jstring JA = Env->NewStringUTF(TCHAR_TO_UTF8(*A));
 				jstring JB = Env->NewStringUTF(TCHAR_TO_UTF8(*B));
-				Env->CallVoidMethod(Activity, Mid, JA, JB);
+				Env->CallVoidMethod(Activity, Mid, JA, JB, (jboolean)(bFlag ? JNI_TRUE : JNI_FALSE));
 				Env->DeleteLocalRef(JA);
 				Env->DeleteLocalRef(JB);
 			}
@@ -116,9 +116,9 @@ namespace
 class FRevenueCatImpl_Android : public IRevenueCatImpl
 {
 public:
-	virtual void Configure(const FString& ApiKey, const FString& AppUserId) override
+	virtual void Configure(const FString& ApiKey, const FString& AppUserId, bool bDebugLogs) override
 	{
-		CallJavaTwoStrings("AndroidThunkJava_RevenueCat_Configure", ApiKey, AppUserId);
+		CallJavaTwoStringsBool("AndroidThunkJava_RevenueCat_Configure", ApiKey, AppUserId, bDebugLogs);
 	}
 
 	virtual void GetOfferings(FResultCallback Cb) override

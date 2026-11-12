@@ -1,4 +1,4 @@
-// RevenueCat UE plugin.
+// Copyright (c) 2026 Nineva Studios
 // Single place that turns raw JSON into USTRUCTs. Handles BOTH response shapes:
 //  - REST v1 (desktop branch): { "subscriber": { "entitlements": {...}, "subscriptions": {...} } }
 //  - SDK / purchases-hybrid-common (iOS & Android): { "entitlements": { "active": {...} }, ... }
@@ -278,14 +278,20 @@ namespace RevenueCatJson
 		FRCError Error;
 		if (!bIsError) { return Error; }
 
-		Error.Code = 1;
+		// Default for payloads without a code (non-JSON body, unexpected shape).
+		Error.Code = RevenueCatErrorCodes::Internal;
 		if (const TSharedPtr<FJsonObject> Root = ParseRoot(Json))
 		{
 			int32 Code = 0;
 			if (Root->TryGetNumberField(TEXT("code"), Code)) { Error.Code = Code; }
 			Root->TryGetStringField(TEXT("message"), Error.Message);
+			Root->TryGetStringField(TEXT("readableErrorCode"), Error.ReadableErrorCode);
+
+			bool bCancelled = false;
+			if (Root->TryGetBoolField(TEXT("userCancelled"), bCancelled)) { Error.bUserCancelled = bCancelled; }
 		}
-		if (Error.Message.IsEmpty()) { Error.Message = Json; }
+		if (Error.Code == RevenueCatErrorCodes::PurchaseCancelled) { Error.bUserCancelled = true; }
+		if (Error.Message.IsEmpty()) { Error.Message = Json.IsEmpty() ? FString(TEXT("Unknown error")) : Json; }
 		return Error;
 	}
 }

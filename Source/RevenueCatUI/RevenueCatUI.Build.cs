@@ -1,4 +1,5 @@
-// RevenueCat UE plugin — demo ViewModels (MVVM). Kept separate from the core module so the
+// Copyright (c) 2026 Nineva Studios
+// Demo ViewModels (MVVM). Kept separate from the core module so the
 // core stays free of UI/MVVM dependencies.
 
 using UnrealBuildTool;

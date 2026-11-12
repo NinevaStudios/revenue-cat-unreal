@@ -53,14 +53,14 @@ import com.revenuecat.purchases.hybridcommon.mappers.MappersHelpersKt;
 				try {
 					nativeRevenueCatOnResult(callbackId, MappersHelpersKt.convertToJson(map).toString(), false);
 				} catch (Throwable t) {
-					nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"" + t.getMessage() + "\"}", true);
+					nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true);
 				}
 			}
 			@Override public void onError(ErrorContainer errorContainer) {
 				try {
 					nativeRevenueCatOnResult(callbackId, MappersHelpersKt.convertToJson(errorContainer.getInfo()).toString(), true);
 				} catch (Throwable t) {
-					nativeRevenueCatOnResult(callbackId, "{\"code\":-1,\"message\":\"error\"}", true);
+					nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true);
 				}
 			}
 		};
@@ -74,7 +74,7 @@ import com.revenuecat.purchases.hybridcommon.mappers.MappersHelpersKt;
 		return "{\"code\":-1,\"message\":\"" + msg + "\"}";
 	}
 
-	public void AndroidThunkJava_RevenueCat_Configure(final String apiKey, final String appUserId) {
+	public void AndroidThunkJava_RevenueCat_Configure(final String apiKey, final String appUserId, final boolean debugLogs) {
 		final String uid = (appUserId != null &amp;&amp; appUserId.length() &gt; 0) ? appUserId : null;
 		runOnUiThread(new Runnable() { public void run() {
 			if (apiKey == null || apiKey.length() == 0) {
@@ -82,7 +82,8 @@ import com.revenuecat.purchases.hybridcommon.mappers.MappersHelpersKt;
 				return;
 			}
 			try {
-				Purchases.setPlatformInfo(new PlatformInfo("unreal", "0.1.0"));
+				if (debugLogs) { Purchases.setLogLevel(com.revenuecat.purchases.LogLevel.DEBUG); }
+				Purchases.setPlatformInfo(new PlatformInfo("unreal", "1.0.0"));
 				PurchasesConfiguration.Builder builder =
 					new PurchasesConfiguration.Builder(getApplicationContext(), apiKey);
 				if (uid != null) { builder.appUserID(uid); }

@@ -1,9 +1,12 @@
-// RevenueCat UE plugin — learning skeleton.
+// Copyright (c) 2026 Nineva Studios
 
 #include "RevenueCatSubsystem.h"
 #include "RevenueCatSettings.h"
 #include "RevenueCatJson.h"
+#include "RevenueCatLog.h"
 #include "Platform/IRevenueCatImpl.h"
+
+DEFINE_LOG_CATEGORY(LogRevenueCat);
 
 void URevenueCatSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -15,6 +18,7 @@ void URevenueCatSubsystem::Deinitialize()
 {
 	delete Impl;
 	Impl = nullptr;
+	bConfigured = false;
 	Super::Deinitialize();
 }
 
@@ -23,33 +27,100 @@ void URevenueCatSubsystem::Configure(const FString& AppUserId)
 	const URevenueCatSettings* Settings = GetDefault<URevenueCatSettings>();
 
 	FString ApiKey;
+	const TCHAR* KeyField = nullptr;
 #if PLATFORM_IOS
 	ApiKey = Settings->AppleApiKey;
+	KeyField = TEXT("Apple Api Key");
 #elif PLATFORM_ANDROID
 	ApiKey = Settings->GoogleApiKey;
+	KeyField = TEXT("Google Api Key");
 #else
 	ApiKey = Settings->WebBillingApiKey;
+	KeyField = TEXT("Web Billing Api Key");
 #endif
+	ApiKey.TrimStartAndEndInline();
 
-	if (Impl)
+	if (!Impl)
 	{
-		Impl->Configure(ApiKey, AppUserId);
+		UE_LOG(LogRevenueCat, Error, TEXT("Configure failed: RevenueCat is not available on this platform."));
+		return;
 	}
+
+	if (ApiKey.IsEmpty())
+	{
+		bConfigured = false;
+		UE_LOG(LogRevenueCat, Error, TEXT("Configure failed: '%s' is empty. Set it in Project Settings > Plugins > RevenueCat."), KeyField);
+		return;
+	}
+
+	if (ApiKey.StartsWith(TEXT("sk_")))
+	{
+		UE_LOG(LogRevenueCat, Error, TEXT("'%s' is a SECRET key (sk_...). Never ship secret keys in a game build - use the public key of the app."), KeyField);
+	}
+
+	Impl->Configure(ApiKey, AppUserId, Settings->bEnableDebugLogs);
+	bConfigured = true;
+	UE_LOG(LogRevenueCat, Log, TEXT("Configured (%s)%s"), KeyField,
+		AppUserId.IsEmpty() ? TEXT(", anonymous user") : *FString::Printf(TEXT(", App User ID '%s'"), *AppUserId));
+}
+
+bool URevenueCatSubsystem::CheckReady(FRCError& OutError) const
+{
+	if (!Impl)
+	{
+		OutError.Code = RevenueCatErrorCodes::Internal;
+		OutError.Message = TEXT("RevenueCat is not available on this platform.");
+		return false;
+	}
+	if (!bConfigured)
+	{
+		OutError.Code = RevenueCatErrorCodes::NotConfigured;
+		OutError.Message = TEXT("RevenueCat is not configured. Call Configure first and set the API key for this platform in Project Settings > Plugins > RevenueCat.");
+		return false;
+	}
+	return true;
+}
+
+TFunction<void(const FString&, bool)> URevenueCatSubsystem::MakeCustomerHandler(const TCHAR* CallName, const FRCOnCustomer& OnDone)
+{
+	TWeakObjectPtr<URevenueCatSubsystem> WeakThis(this);
+	const FString Name(CallName);
+	return [WeakThis, Name, OnDone](const FString& Json, bool bIsError)
+	{
+		const FRCCustomerInfo Info = bIsError ? FRCCustomerInfo() : RevenueCatJson::ParseCustomerInfo(Json);
+		const FRCError Error = RevenueCatJson::ParseError(Json, bIsError);
+
+		if (Error.HasError())
+		{
+			UE_LOG(LogRevenueCat, Warning, TEXT("%s failed: [%d] %s"), *Name, Error.Code, *Error.Message);
+		}
+		else if (URevenueCatSubsystem* Self = WeakThis.Get())
+		{
+			Self->UpdateCache(Info);
+		}
+
+		OnDone.ExecuteIfBound(Info, Error);
+	};
 }
 
 void URevenueCatSubsystem::GetOfferings(const FRCOnOfferings& OnDone)
 {
-	if (!Impl)
+	FRCError NotReady;
+	if (!CheckReady(NotReady))
 	{
-		FRCError Err; Err.Code = -1; Err.Message = TEXT("RevenueCat not initialized");
-		OnDone.ExecuteIfBound(FRCOfferings(), Err);
+		UE_LOG(LogRevenueCat, Warning, TEXT("GetOfferings failed: [%d] %s"), NotReady.Code, *NotReady.Message);
+		OnDone.ExecuteIfBound(FRCOfferings(), NotReady);
 		return;
 	}
 
-	FRCOnOfferings Callback = OnDone;
-	Impl->GetOfferings([Callback](const FString& Json, bool bIsError)
+	Impl->GetOfferings([OnDone](const FString& Json, bool bIsError)
 	{
-		Callback.ExecuteIfBound(RevenueCatJson::ParseOfferings(Json), RevenueCatJson::ParseError(Json, bIsError));
+		const FRCError Error = RevenueCatJson::ParseError(Json, bIsError);
+		if (Error.HasError())
+		{
+			UE_LOG(LogRevenueCat, Warning, TEXT("GetOfferings failed: [%d] %s"), Error.Code, *Error.Message);
+		}
+		OnDone.ExecuteIfBound(bIsError ? FRCOfferings() : RevenueCatJson::ParseOfferings(Json), Error);
 	});
 }
 
@@ -60,92 +131,62 @@ void URevenueCatSubsystem::PurchaseStorePackage(const FRCPackage& Package, const
 
 void URevenueCatSubsystem::PurchasePackage(const FString& PackageIdentifier, const FString& OfferingIdentifier, const FRCOnCustomer& OnDone)
 {
-	if (!Impl)
+	FRCError NotReady;
+	if (!CheckReady(NotReady))
 	{
-		FRCError Err; Err.Code = -1; Err.Message = TEXT("RevenueCat not initialized");
-		OnDone.ExecuteIfBound(FRCCustomerInfo(), Err);
+		MakeCustomerHandler(TEXT("PurchasePackage"), OnDone)(FString::Printf(TEXT("{\"code\":%d,\"message\":\"%s\"}"), NotReady.Code, *NotReady.Message), true);
 		return;
 	}
-
-	FRCOnCustomer Callback = OnDone;
-	Impl->PurchasePackage(PackageIdentifier, OfferingIdentifier, [this, Callback](const FString& Json, bool bIsError)
-	{
-		const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
-		if (!bIsError) { UpdateCache(Info); }
-		Callback.ExecuteIfBound(Info, RevenueCatJson::ParseError(Json, bIsError));
-	});
+	Impl->PurchasePackage(PackageIdentifier, OfferingIdentifier, MakeCustomerHandler(TEXT("PurchasePackage"), OnDone));
 }
 
 void URevenueCatSubsystem::GetCustomerInfo(const FRCOnCustomer& OnDone)
 {
-	if (!Impl)
+	FRCError NotReady;
+	if (!CheckReady(NotReady))
 	{
-		FRCError Err; Err.Code = -1; Err.Message = TEXT("RevenueCat not initialized");
-		OnDone.ExecuteIfBound(FRCCustomerInfo(), Err);
+		MakeCustomerHandler(TEXT("GetCustomerInfo"), OnDone)(FString::Printf(TEXT("{\"code\":%d,\"message\":\"%s\"}"), NotReady.Code, *NotReady.Message), true);
 		return;
 	}
-
-	FRCOnCustomer Callback = OnDone;
-	Impl->GetCustomerInfo([this, Callback](const FString& Json, bool bIsError)
-	{
-		const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
-		if (!bIsError) { UpdateCache(Info); }
-		Callback.ExecuteIfBound(Info, RevenueCatJson::ParseError(Json, bIsError));
-	});
+	Impl->GetCustomerInfo(MakeCustomerHandler(TEXT("GetCustomerInfo"), OnDone));
 }
 
 void URevenueCatSubsystem::RestorePurchases(const FRCOnCustomer& OnDone)
 {
-	if (!Impl)
+	FRCError NotReady;
+	if (!CheckReady(NotReady))
 	{
-		FRCError Err; Err.Code = -1; Err.Message = TEXT("RevenueCat not initialized");
-		OnDone.ExecuteIfBound(FRCCustomerInfo(), Err);
+		MakeCustomerHandler(TEXT("RestorePurchases"), OnDone)(FString::Printf(TEXT("{\"code\":%d,\"message\":\"%s\"}"), NotReady.Code, *NotReady.Message), true);
 		return;
 	}
-
-	FRCOnCustomer Callback = OnDone;
-	Impl->RestorePurchases([this, Callback](const FString& Json, bool bIsError)
-	{
-		const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
-		if (!bIsError) { UpdateCache(Info); }
-		Callback.ExecuteIfBound(Info, RevenueCatJson::ParseError(Json, bIsError));
-	});
+	Impl->RestorePurchases(MakeCustomerHandler(TEXT("RestorePurchases"), OnDone));
 }
 
 void URevenueCatSubsystem::LogIn(const FString& AppUserId, const FRCOnCustomer& OnDone)
 {
-	if (!Impl)
+	FRCError NotReady;
+	if (!CheckReady(NotReady))
 	{
-		FRCError Err; Err.Code = -1; Err.Message = TEXT("RevenueCat not initialized");
-		OnDone.ExecuteIfBound(FRCCustomerInfo(), Err);
+		MakeCustomerHandler(TEXT("LogIn"), OnDone)(FString::Printf(TEXT("{\"code\":%d,\"message\":\"%s\"}"), NotReady.Code, *NotReady.Message), true);
 		return;
 	}
-
-	FRCOnCustomer Callback = OnDone;
-	Impl->LogIn(AppUserId, [this, Callback](const FString& Json, bool bIsError)
+	if (AppUserId.TrimStartAndEnd().IsEmpty())
 	{
-		const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
-		if (!bIsError) { UpdateCache(Info); }
-		Callback.ExecuteIfBound(Info, RevenueCatJson::ParseError(Json, bIsError));
-	});
+		MakeCustomerHandler(TEXT("LogIn"), OnDone)(TEXT("{\"code\":14,\"message\":\"LogIn requires a non-empty App User ID.\"}"), true);
+		return;
+	}
+	Impl->LogIn(AppUserId, MakeCustomerHandler(TEXT("LogIn"), OnDone));
 }
 
 void URevenueCatSubsystem::LogOut(const FRCOnCustomer& OnDone)
 {
-	if (!Impl)
+	FRCError NotReady;
+	if (!CheckReady(NotReady))
 	{
-		FRCError Err; Err.Code = -1; Err.Message = TEXT("RevenueCat not initialized");
-		OnDone.ExecuteIfBound(FRCCustomerInfo(), Err);
+		MakeCustomerHandler(TEXT("LogOut"), OnDone)(FString::Printf(TEXT("{\"code\":%d,\"message\":\"%s\"}"), NotReady.Code, *NotReady.Message), true);
 		return;
 	}
-
-	FRCOnCustomer Callback = OnDone;
-	Impl->LogOut([this, Callback](const FString& Json, bool bIsError)
-	{
-		const FRCCustomerInfo Info = RevenueCatJson::ParseCustomerInfo(Json);
-		if (!bIsError) { UpdateCache(Info); }
-		Callback.ExecuteIfBound(Info, RevenueCatJson::ParseError(Json, bIsError));
-	});
+	Impl->LogOut(MakeCustomerHandler(TEXT("LogOut"), OnDone));
 }
 
 bool URevenueCatSubsystem::HasActiveEntitlement(const FString& EntitlementId) const

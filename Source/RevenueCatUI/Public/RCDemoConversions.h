@@ -1,4 +1,5 @@
-// RevenueCat UE plugin — pure conversion functions for MVVM view bindings.
+// Copyright (c) 2026 Nineva Studios
+// Pure conversion functions for MVVM view bindings.
 
 #pragma once
 

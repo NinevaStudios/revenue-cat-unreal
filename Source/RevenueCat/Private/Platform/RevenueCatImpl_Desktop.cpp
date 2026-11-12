@@ -1,12 +1,14 @@
-// RevenueCat UE plugin.
+// Copyright (c) 2026 Nineva Studios
 // Desktop (Win64 / Mac / Linux): no native store SDK, so we talk to the RevenueCat REST API v1
 // over HTTP (the same data the mobile SDK fetches), using the PUBLIC key. Reads (customer info /
 // offerings) are direct GETs; purchases open a Web Billing checkout in the browser and then poll
 // for the resulting entitlement.
 //
-// Override the endpoint with Project Settings -> Plugins -> RevenueCat -> "Backend Base Url" to
-// route through your own server (recommended source of truth) instead of hitting RevenueCat
-// directly; the response shape is assumed identical to the v1 subscriber/offerings payloads.
+// The App User ID is persisted per project (like the mobile SDKs do), so an anonymous desktop
+// player keeps the same RevenueCat customer between launches.
+//
+// "Rest Api Base Url" (Project Settings -> Plugins -> RevenueCat, advanced) can point the requests
+// at your own proxy; the response shape must stay identical to the v1 subscriber/offerings payloads.
 
 #include "Platform/IRevenueCatImpl.h"
 
@@ -14,6 +16,9 @@
 
 #include "RevenueCatSettings.h"
 #include "RevenueCatJson.h"
+#include "RevenueCatLog.h"
+#include "HAL/PlatformMisc.h"
+#include "Misc/App.h"
 #include "HttpModule.h"
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
@@ -35,10 +40,16 @@ public:
 		*Alive = false; // invalidate any in-flight poll continuations
 	}
 
-	virtual void Configure(const FString& InApiKey, const FString& InAppUserId) override
+	virtual void Configure(const FString& InApiKey, const FString& InAppUserId, bool bInDebugLogs) override
 	{
 		ApiKey = InApiKey;
-		AppUserId = InAppUserId.IsEmpty() ? MakeAnonymousId() : InAppUserId;
+		bDebugLogs = bInDebugLogs;
+
+		// Same rule as the mobile SDKs: explicit ID > last used ID > new anonymous ID.
+		FString Id = InAppUserId.TrimStartAndEnd();
+		if (Id.IsEmpty()) { Id = LoadStoredAppUserId(); }
+		if (Id.IsEmpty()) { Id = MakeAnonymousId(); }
+		SetAppUserId(Id);
 	}
 
 	virtual void GetOfferings(FResultCallback Cb) override
@@ -59,14 +70,20 @@ public:
 
 	virtual void LogIn(const FString& InAppUserId, FResultCallback Cb) override
 	{
-		AppUserId = InAppUserId;
+		SetAppUserId(InAppUserId.TrimStartAndEnd());
 		GetCustomerInfo(MoveTemp(Cb)); // a GET creates the subscriber if it doesn't exist yet
 	}
 
 	virtual void LogOut(FResultCallback Cb) override
 	{
-		AppUserId = MakeAnonymousId();
-		Cb(TEXT("{}"), false);
+		if (IsAnonymous(AppUserId))
+		{
+			// Mirrors the SDK's LogOutWithAnonymousUserError.
+			Cb(TEXT("{\"code\":22,\"message\":\"Called LogOut but the current user is anonymous.\"}"), true);
+			return;
+		}
+		SetAppUserId(MakeAnonymousId());
+		GetCustomerInfo(MoveTemp(Cb));
 	}
 
 	// PC purchases go through a Web Billing checkout in the browser. We open the configured Web
@@ -100,6 +117,7 @@ public:
 private:
 	FString ApiKey;
 	FString AppUserId;
+	bool bDebugLogs = false;
 	TSharedRef<bool, ESPMode::ThreadSafe> Alive;
 
 	struct FPollState
@@ -113,15 +131,43 @@ private:
 
 	static FString MakeAnonymousId()
 	{
-		return FString::Printf(TEXT("$RCAnonymousID:%s"), *FGuid::NewGuid().ToString(EGuidFormats::Digits));
+		return FString::Printf(TEXT("$RCAnonymousID:%s"), *FGuid::NewGuid().ToString(EGuidFormats::Digits).ToLower());
+	}
+
+	static bool IsAnonymous(const FString& Id)
+	{
+		return Id.StartsWith(TEXT("$RCAnonymousID:"));
+	}
+
+	// Per-user, per-project storage (registry on Windows, ini under the user folder on Mac/Linux).
+	static FString StoreSection()
+	{
+		return FString::Printf(TEXT("RevenueCat_%s"), FApp::GetProjectName());
+	}
+
+	static FString LoadStoredAppUserId()
+	{
+		FString Value;
+		FPlatformMisc::GetStoredValue(TEXT("Nineva Studios"), StoreSection(), TEXT("AppUserId"), Value);
+		return Value;
+	}
+
+	void SetAppUserId(const FString& Id)
+	{
+		AppUserId = Id;
+		FPlatformMisc::SetStoredValue(TEXT("Nineva Studios"), StoreSection(), TEXT("AppUserId"), Id);
+		if (bDebugLogs)
+		{
+			UE_LOG(LogRevenueCat, Log, TEXT("App User ID: %s"), *Id);
+		}
 	}
 
 	FString BaseUrl() const
 	{
 		const URevenueCatSettings* Settings = GetDefault<URevenueCatSettings>();
-		if (Settings && !Settings->BackendBaseUrl.IsEmpty())
+		if (Settings && !Settings->RestApiBaseUrl.IsEmpty())
 		{
-			FString Url = Settings->BackendBaseUrl;
+			FString Url = Settings->RestApiBaseUrl;
 			while (Url.EndsWith(TEXT("/"))) { Url.LeftChopInline(1); }
 			return Url;
 		}
@@ -154,19 +200,33 @@ private:
 			Request->SetHeader(TEXT("X-Platform"), Platform);
 		}
 
+		if (bDebugLogs)
+		{
+			UE_LOG(LogRevenueCat, Log, TEXT("GET %s (X-Platform: %s)"), *Url, Platform.IsEmpty() ? TEXT("-") : *Platform);
+		}
+
+		const bool bLog = bDebugLogs;
 		Request->OnProcessRequestComplete().BindLambda(
-			[Cb](FHttpRequestPtr /*Req*/, FHttpResponsePtr Response, bool bConnectedSuccessfully)
+			[Cb, bLog, Url](FHttpRequestPtr /*Req*/, FHttpResponsePtr Response, bool bConnectedSuccessfully)
 			{
-				if (bConnectedSuccessfully && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode()))
+				const bool bHasResponse = bConnectedSuccessfully && Response.IsValid();
+				if (bLog)
+				{
+					UE_LOG(LogRevenueCat, Log, TEXT("GET %s -> %d"), *Url, bHasResponse ? Response->GetResponseCode() : 0);
+				}
+
+				if (bHasResponse && EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 				{
 					Cb(Response->GetContentAsString(), false);
 				}
+				else if (bHasResponse)
+				{
+					Cb(Response->GetContentAsString(), true); // RevenueCat error body: {"code":7xxx,"message":...}
+				}
 				else
 				{
-					const FString Body = Response.IsValid()
-						? Response->GetContentAsString()
-						: FString(TEXT("{\"message\":\"No response / network error\"}"));
-					Cb(Body, true);
+					// Same code as the SDK's NetworkError.
+					Cb(TEXT("{\"code\":10,\"message\":\"Network error: no response from RevenueCat.\"}"), true);
 				}
 			});
 
@@ -219,7 +279,7 @@ private:
 			State->Elapsed += State->Interval;
 			if (State->Elapsed >= State->TimeoutSec)
 			{
-				State->Cb(TEXT("{\"code\":-3,\"message\":\"Checkout not confirmed before timeout; the purchase may still complete via webhook.\"}"), true);
+				State->Cb(TEXT("{\"code\":-3,\"message\":\"Checkout was not completed before the timeout. If the player pays later, call Get Customer Info to refresh.\"}"), true);
 				return;
 			}
 
