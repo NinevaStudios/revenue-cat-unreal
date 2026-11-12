@@ -95,35 +95,57 @@ import com.revenuecat.purchases.hybridcommon.mappers.MappersHelpersKt;
 		}});
 	}
 
+	// Every SDK call runs on the UI thread, in the order it was made (main looper is FIFO), so a call
+	// made right after Configure always runs after Purchases.configure(). If the SDK is still not
+	// configured (e.g. the API key was empty), the call returns -4 (NotConfigured) instead of throwing.
+	private void RevenueCat_run(final long callbackId, final Runnable body) {
+		runOnUiThread(new Runnable() { public void run() {
+			try {
+				if (!Purchases.isConfigured()) {
+					nativeRevenueCatOnResult(callbackId, "{\"code\":-4,\"message\":\"RevenueCat is not configured on Android. Check 'Google Api Key' and logcat (tag RevenueCat).\"}", true);
+					return;
+				}
+				body.run();
+			} catch (Throwable t) {
+				nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true);
+			}
+		}});
+	}
+
 	public void AndroidThunkJava_RevenueCat_GetOfferings(final long callbackId) {
-		try { CommonKt.getOfferings(RevenueCat_makeResult(callbackId)); }
-		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true); }
+		RevenueCat_run(callbackId, new Runnable() { public void run() {
+			CommonKt.getOfferings(RevenueCat_makeResult(callbackId));
+		}});
 	}
 
 	public void AndroidThunkJava_RevenueCat_GetCustomerInfo(final long callbackId) {
-		try { CommonKt.getCustomerInfo(RevenueCat_makeResult(callbackId)); }
-		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true); }
+		RevenueCat_run(callbackId, new Runnable() { public void run() {
+			CommonKt.getCustomerInfo(RevenueCat_makeResult(callbackId));
+		}});
 	}
 
 	public void AndroidThunkJava_RevenueCat_RestorePurchases(final long callbackId) {
-		try { CommonKt.restorePurchases(RevenueCat_makeResult(callbackId)); }
-		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true); }
+		RevenueCat_run(callbackId, new Runnable() { public void run() {
+			CommonKt.restorePurchases(RevenueCat_makeResult(callbackId));
+		}});
 	}
 
 	public void AndroidThunkJava_RevenueCat_LogIn(final String appUserId, final long callbackId) {
-		try { CommonKt.logIn(appUserId, RevenueCat_makeResult(callbackId)); }
-		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true); }
+		RevenueCat_run(callbackId, new Runnable() { public void run() {
+			CommonKt.logIn(appUserId, RevenueCat_makeResult(callbackId));
+		}});
 	}
 
 	public void AndroidThunkJava_RevenueCat_LogOut(final long callbackId) {
-		try { CommonKt.logOut(RevenueCat_makeResult(callbackId)); }
-		catch (Throwable t) { nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true); }
+		RevenueCat_run(callbackId, new Runnable() { public void run() {
+			CommonKt.logOut(RevenueCat_makeResult(callbackId));
+		}});
 	}
 
 	public void AndroidThunkJava_RevenueCat_PurchasePackage(final String packageIdentifier, final String offeringIdentifier, final long callbackId) {
 		final Activity activity = this;
-		runOnUiThread(new Runnable() { public void run() {
-			try {
+		RevenueCat_run(callbackId, new Runnable() { public void run() {
+			{
 				java.util.HashMap&lt;String, Object&gt; presentedOfferingContext = new java.util.HashMap&lt;String, Object&gt;();
 				if (offeringIdentifier != null &amp;&amp; offeringIdentifier.length() &gt; 0) {
 					presentedOfferingContext.put("offeringIdentifier", offeringIdentifier);
@@ -136,8 +158,6 @@ import com.revenuecat.purchases.hybridcommon.mappers.MappersHelpersKt;
 					null,   // googleReplacementMode
 					null,   // googleIsPersonalizedPrice
 					RevenueCat_makeResult(callbackId));
-			} catch (Throwable t) {
-				nativeRevenueCatOnResult(callbackId, RevenueCat_errJson(t), true);
 			}
 		}});
 	}
